@@ -45,6 +45,18 @@ INSERT INTO cliente VALUES(
     'Dependente 4'
 );
 
+INSERT INTO cliente VALUES(
+    '31',
+    NULL,
+    'Cliente 3'
+);
+
+INSERT INTO cliente VALUES(
+    '32',
+    NULL,
+    'Cliente 4'
+);
+
 SELECT * FROM cliente;
 
 CREATE TABLE procedimento(
@@ -225,6 +237,33 @@ INSERT INTO atendimento VALUES(
     '6'
 );
 
+INSERT INTO atendimento VALUES(
+    '33',
+    '2021-07-11 22:10:25',
+    '7',
+    '31'
+);
+
+INSERT INTO atendimento VALUES(
+    '34',
+    '2021-07-12 22:10:25',
+    '8',
+    '31'
+);
+
+INSERT INTO atendimento VALUES(
+    '35',
+    '2021-07-12 09:10:25',
+    '9',
+    '32'
+);
+
+INSERT INTO atendimento VALUES(
+    '36',
+    '2021-07-13 10:10:25',
+    '9',
+    '32'
+);
 
 SELECT * FROM atendimento ORDER BY atendimento.data;
    
@@ -252,11 +291,16 @@ BEGIN
         SELECT cliente.titular INTO STRICT titular FROM cliente WHERE id = a.cliente;
         
         qtdVidasContrato := 1; --inicia com apenas o titular
-        
-        FOR cliente IN dependentes(titular) LOOP --segundo FOR pedido pela questão
-            qtdVidasContrato := qtdVidasContrato + 1;
-        END LOOP;
 
+        IF titular IS NULL THEN
+            FOR cliente IN dependentes(a.cliente) LOOP --segundo FOR pedido pela questão
+                qtdVidasContrato := qtdVidasContrato + 1;
+            END LOOP;
+        ELSE
+            FOR cliente IN dependentes(titular) LOOP --segundo FOR pedido pela questão
+                qtdVidasContrato := qtdVidasContrato + 1;
+            END LOOP;
+        END IF;
         SELECT COUNT(*) INTO qtdAtendUrgencia 
         FROM atendimento 
         WHERE 
