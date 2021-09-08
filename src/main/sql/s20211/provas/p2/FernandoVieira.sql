@@ -50,10 +50,7 @@ CREATE OR REPLACE FUNCTION process_concerto() RETURNS TRIGGER AS $$
         IF (TG_OP = 'DELETE') THEN
             RAISE NOTICE 'DELETING...';
             RETURN OLD;
-        ELSIF (TG_OP = 'UPDATE') THEN
-
-            RETURN NEW;
-        ELSIF (TG_OP = 'INSERT') THEN
+        ELSIF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
             RAISE NOTICE 'INSERTING...';
             --verificar se a arena esta alugada para o horario passado
             SELECT COUNT(*) INTO cont
@@ -87,6 +84,32 @@ CREATE TRIGGER concerto_trigger
     FOR EACH ROW
     EXECUTE PROCEDURE process_concerto();
 
+CREATE OR REPLACE FUNCTION process_atividade_excluir() RETURNS TRIGGER AS $$
+    << outerblock >>
+    DECLARE
+        cont integer := 0;
+    BEGIN
+        IF (TG_OP = 'DELETE') THEN
+            RAISE NOTICE 'DELETING...';
+            SELECT COUNT(*) INTO cont
+            FROM artista
+            WHERE atividade = OLD.id;
+            
+            IF(cont >= 1) THEN
+                RAISE EXCEPTION 'A atividade nao pode ser apagada porque existe ao menos um artista exercendo ela';
+                RETURN NULL;
+            END IF;
+
+            RETURN OLD;
+        END IF;
+        RETURN NULL;
+    END; 
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER atividade_excluir_trigger
+    BEFORE DELETE ON atividade
+    FOR EACH ROW
+    EXECUTE PROCEDURE process_atividade_excluir();
 
 INSERT INTO atividade VALUES(
     '1',
@@ -96,6 +119,11 @@ INSERT INTO atividade VALUES(
 INSERT INTO atividade VALUES(
     '2',
     'Atividade 2'
+);
+
+INSERT INTO atividade VALUES(
+    '3',
+    'Atividade 3'
 );
 
 INSERT INTO artista VALUES(
@@ -114,6 +142,15 @@ INSERT INTO artista VALUES(
     'RJ',
     '33311122',
     '2'
+);
+
+INSERT INTO artista VALUES(
+    '3',
+    'Alessandra Nascimento',
+    'Rio de Janeiro',
+    'RJ',
+    '88888888',
+    '1'
 );
 
 INSERT INTO arena VALUES(
@@ -148,9 +185,18 @@ INSERT INTO concerto VALUES(
     '100.00'
 );
 
---deve dar erro arena ocupada
 INSERT INTO concerto VALUES(
     '3',
+    '3',
+    '1',
+    '2021-09-10 12:00:00',
+    '2021-09-10 13:00:00',
+    '100.00'
+);
+
+--deve dar erro arena ocupada
+INSERT INTO concerto VALUES(
+    '4',
     '2',
     '1',
     '2021-09-08 15:00:00',
@@ -160,7 +206,7 @@ INSERT INTO concerto VALUES(
 
 --deve dar erro artista ocupado
 INSERT INTO concerto VALUES(
-    '3',
+    '4',
     '2',
     '1',
     '2021-09-08 20:30:00',
@@ -168,4 +214,14 @@ INSERT INTO concerto VALUES(
     '100.00'
 );
 
+
 select * from concerto;
+
+--tem q dar certo
+DELETE FROM atividade WHERE id = '3';
+
+--tem q dar erro - ao menos um artista com essa atividade
+DELETE FROM atividade WHERE id = '1';
+
+--tem q dar erro - ao menos um artista com essa atividade
+DELETE FROM atividade WHERE id = '2';
