@@ -42,6 +42,52 @@ create table concerto(
         REFERENCES arena(id)
 );
 
+CREATE OR REPLACE FUNCTION process_concerto() RETURNS TRIGGER AS $$
+    << outerblock >>
+    DECLARE
+        cont integer := 0;
+    BEGIN
+        IF (TG_OP = 'DELETE') THEN
+            RAISE NOTICE 'DELETING...';
+            RETURN OLD;
+        ELSIF (TG_OP = 'UPDATE') THEN
+
+            RETURN NEW;
+        ELSIF (TG_OP = 'INSERT') THEN
+            RAISE NOTICE 'INSERTING...';
+            --verificar se a arena esta alugada para o horario passado
+            SELECT COUNT(*) INTO cont
+            FROM concerto
+            WHERE arena = NEW.arena AND ((NEW.inicio >= inicio AND NEW.fim <= fim) OR (NEW.inicio < inicio AND NEW.fim <= fim));
+            
+            IF(cont >= 1) THEN
+                RAISE EXCEPTION 'Arena esta ocupada nesse horario';
+                RETURN NULL;
+            END IF;
+            
+            --verificar se o artista esta ocupado no horario passado
+            SELECT COUNT(*) INTO cont
+            FROM concerto
+            WHERE artista = NEW.artista AND ((NEW.inicio >= inicio AND NEW.fim <= fim) OR (NEW.inicio < inicio AND NEW.fim <= fim));
+            
+            IF(cont >= 1) THEN
+                RAISE EXCEPTION 'Artista esta ocupado nesse horario';
+                RETURN NULL;
+            END IF;
+
+            RETURN NEW;
+        END IF;
+        RETURN NULL;
+    END; 
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER concerto_trigger
+    BEFORE INSERT OR UPDATE ON concerto
+    FOR EACH ROW
+    EXECUTE PROCEDURE process_concerto();
+
+
 INSERT INTO atividade VALUES(
     '1',
     'Atividade 1'
@@ -70,49 +116,56 @@ INSERT INTO artista VALUES(
     '2'
 );
 
+INSERT INTO arena VALUES(
+    '1',
+    'Arena 1',
+    'Rio de Janeiro',
+    '12000'
+);
 
+INSERT INTO arena VALUES(
+    '2',
+    'Arena 2',
+    'Rio de Janeiro',
+    '5000'
+);
 
-CREATE OR REPLACE FUNCTION process_concerto() RETURNS TRIGGER AS $$
-    << outerblock >>
-    DECLARE
-        cont integer := 0;
-    BEGIN
-        IF (TG_OP = 'DELETE') THEN
-            RAISE NOTICE 'DELETING...';
-            RETURN OLD;
-        ELSIF (TG_OP = 'UPDATE') THEN
+INSERT INTO concerto VALUES(
+    '1',
+    '1',
+    '1',
+    '2021-09-08 15:00:00',
+    '2021-09-08 20:00:00',
+    '100.00'
+);
 
-            RETURN NEW;
-        ELSIF (TG_OP = 'INSERT') THEN
-            RAISE NOTICE 'INSERTING...';
-            --verificar se a arena esta alugada para o horario passado
-            SELECT COUNT(*) INTO cont
-            FROM concerto
-            WHERE inicio >= NEW.inicio AND fim <= NEW.fim AND arena = NEW.arena;
-            
-            IF(cont >= 1) THEN
-                RAISE EXCEPTION 'Arena esta ocupada nesse horario';
-                RETURN NULL;
-            END IF;
+INSERT INTO concerto VALUES(
+    '2',
+    '2',
+    '2',
+    '2021-09-08 21:00:00',
+    '2021-09-08 22:00:00',
+    '100.00'
+);
 
-            --verificar se o artista esta ocupado no horario passado
-            SELECT COUNT(*) INTO cont
-            FROM concerto
-            WHERE inicio >= NEW.inicio AND fim <= NEW.fim AND artista = NEW.artista;
-            
-            IF(cont >= 1) THEN
-                RAISE EXCEPTION 'Artista esta ocupado nesse horario';
-                RETURN NULL;
-            END IF;
-            
-            RETURN NEW;
-        END IF;
-        RETURN NULL;
-    END; 
-$$ LANGUAGE plpgsql;
+--deve dar erro arena ocupada
+INSERT INTO concerto VALUES(
+    '3',
+    '2',
+    '1',
+    '2021-09-08 15:00:00',
+    '2021-09-08 17:00:00',
+    '100.00'
+);
 
+--deve dar erro artista ocupado
+INSERT INTO concerto VALUES(
+    '3',
+    '2',
+    '1',
+    '2021-09-08 20:30:00',
+    '2021-09-08 22:00:00',
+    '100.00'
+);
 
-CREATE TRIGGER concerto_trigger
-    BEFORE INSERT OR UPDATE OR DELETE ON concerto
-    FOR EACH ROW
-    EXECUTE PROCEDURE process_concerto();
+select * from concerto;
